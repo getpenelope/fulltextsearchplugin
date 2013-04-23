@@ -5,7 +5,6 @@ import operator
 import re
 import sunburnt
 from sunburnt.sunburnt import grouper
-import types
 
 from trac.env import IEnvironmentSetupParticipant
 from trac.core import Component, implements, Interface, TracError
@@ -19,7 +18,6 @@ from trac.wiki.model import WikiPage
 from trac.wiki.web_ui import WikiModule
 from trac.util.text import shorten_line
 from trac.attachment import IAttachmentChangeListener, Attachment
-from trac.attachment import AttachmentModule
 from trac.versioncontrol.api import IRepositoryChangeListener, Changeset
 from trac.versioncontrol.web_ui import ChangesetModule
 from trac.resource import (get_resource_shortname, get_resource_url,
@@ -42,13 +40,16 @@ __all__ = ['IFullTextSearchSource',
            'FullTextSearchObject', 'Backend', 'FullTextSearch',
            ]
 
+
 def _do_nothing(*args, **kwargs):
     pass
+
 
 def _sql_in(seq):
     '''Return '(%s,%s,...%s)' suitable to use in a SQL in clause.
     '''
     return '(%s)' % ','.join('%s' for x in seq)
+
 
 def _res_id(resource):
     if resource.parent:
@@ -57,11 +58,14 @@ def _res_id(resource):
     else:
         return u"%s:%s"% (resource.realm, resource.id)
 
+
 class IFullTextSearchSource(Interface):
     pass
 
+
 class FullTextSearchModule(Component):
     pass
+
 
 class FullTextSearchObject(object):
     '''Minimal behaviour class to store documents going to/comping from Solr.
@@ -499,6 +503,17 @@ class FullTextSearch(Component):
         resource_name = get_resource_shortname(self.env, ticket.resource)
         resource_desc = ticketsystem.get_resource_description(ticket.resource,
                                                               format='summary')
+        # make sure we will index customerrequest name not id
+        cr_id = ticket['customerrequest']
+        if cr_id:
+            db = self.env.get_read_db()
+            cursor = db.cursor()
+            cursor.execute("SELECT name FROM public.customer_requests "
+                           " WHERE id='%s'" % cr_id)
+            row = cursor.fetchone()
+            if row:
+                ticket.values['customerrequest'] = row[0]
+
         so = FullTextSearchObject(
                 self.project, ticket.resource,
                 title = u"%(title)s: %(message)s" % {'title': resource_name,

@@ -27,11 +27,11 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # ----------------------------------------------------------------------------
 
-from setuptools import find_packages, setup
+from setuptools import setup
 
 setup(
     name = 'FullTextSearchPlugin', 
-    version = '0.0',
+    version = '0.1',
     author = 'Mikael Frykholm',
     author_email = 'mikael.frykholm@logica.com',
     description = "Provide full text indexing of all core items like tickets, wiki, attachments, source code.",

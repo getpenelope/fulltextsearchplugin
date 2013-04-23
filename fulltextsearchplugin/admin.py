@@ -1,6 +1,6 @@
 import sys
 
-from trac.admin import AdminCommandError, IAdminCommandProvider, PrefixList
+from trac.admin import IAdminCommandProvider, PrefixList
 from trac.core import Component, implements
 from trac.util.translation import _
 from trac.util.text import printout, print_table
