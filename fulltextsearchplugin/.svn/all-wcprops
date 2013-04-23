@@ -1,0 +1,29 @@
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/svn/!svn/ver/11663/fulltextsearchplugin/trunk/fulltextsearchplugin
+END
+fulltextsearch.py
+K 25
+svn:wc:ra_dav:version-url
+V 85
+/svn/!svn/ver/11663/fulltextsearchplugin/trunk/fulltextsearchplugin/fulltextsearch.py
+END
+__init__.py
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/svn/!svn/ver/11663/fulltextsearchplugin/trunk/fulltextsearchplugin/__init__.py
+END
+dates.py
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svn/!svn/ver/11663/fulltextsearchplugin/trunk/fulltextsearchplugin/dates.py
+END
+admin.py
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svn/!svn/ver/11663/fulltextsearchplugin/trunk/fulltextsearchplugin/admin.py
+END

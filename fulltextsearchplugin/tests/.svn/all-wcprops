@@ -1,0 +1,41 @@
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/svn/!svn/ver/11663/fulltextsearchplugin/trunk/fulltextsearchplugin/tests
+END
+fulltextsearch.py
+K 25
+svn:wc:ra_dav:version-url
+V 91
+/svn/!svn/ver/11663/fulltextsearchplugin/trunk/fulltextsearchplugin/tests/fulltextsearch.py
+END
+__init__.py
+K 25
+svn:wc:ra_dav:version-url
+V 85
+/svn/!svn/ver/11663/fulltextsearchplugin/trunk/fulltextsearchplugin/tests/__init__.py
+END
+dates.py
+K 25
+svn:wc:ra_dav:version-url
+V 82
+/svn/!svn/ver/11663/fulltextsearchplugin/trunk/fulltextsearchplugin/tests/dates.py
+END
+svn.dump
+K 25
+svn:wc:ra_dav:version-url
+V 82
+/svn/!svn/ver/11663/fulltextsearchplugin/trunk/fulltextsearchplugin/tests/svn.dump
+END
+admin.py
+K 25
+svn:wc:ra_dav:version-url
+V 82
+/svn/!svn/ver/11663/fulltextsearchplugin/trunk/fulltextsearchplugin/tests/admin.py
+END
+console-tests.txt
+K 25
+svn:wc:ra_dav:version-url
+V 91
+/svn/!svn/ver/11663/fulltextsearchplugin/trunk/fulltextsearchplugin/tests/console-tests.txt
+END
