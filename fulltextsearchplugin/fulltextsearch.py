@@ -4,7 +4,7 @@ from datetime import datetime
 import operator
 import re
 import sunburnt
-from sunburnt.sunburnt import grouper
+#from sunburnt.sunburnt import grouper
 
 from trac.env import IEnvironmentSetupParticipant
 from trac.core import Component, implements, Interface, TracError
@@ -29,6 +29,7 @@ from trac.config import ListOption
 from trac.config import Option
 from trac.util.compat import partial
 from trac.util.datefmt import to_datetime, to_utimestamp, utc
+from trac.util.datefmt import from_utimestamp
 from trac.web.chrome import add_warning
 from trac.versioncontrol import RepositoryManager
 
@@ -369,11 +370,22 @@ class FullTextSearch(Component):
                 "FROM attachment "
                 "ORDER by time",
                 )
+
+        def _from_database(attachment, filename, description,
+                           size, time, author, ipnr):
+            attachment.filename = filename
+            attachment.description = description
+            attachment.size = int(size) if size else 0
+            attachment.date = from_utimestamp(time or 0)
+            attachment.author = author
+            attachment.ipnr = ipnr
+
         def att(row):
             parent_realm, parent_id = row[0], row[1]
             attachment = Attachment(self.env, parent_realm, parent_id)
-            attachment._from_database(*row[2:])
+            _from_database(attachment, *row[2:])
             return attachment
+
         def check(attachment, status):
             return (status is None
                     or attachment.date > to_datetime(int(status)))
