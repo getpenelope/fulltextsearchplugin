@@ -30,6 +30,7 @@ from trac.config import Option
 from trac.util.compat import partial
 from trac.util.datefmt import to_datetime, to_utimestamp, utc
 from trac.web.chrome import add_warning
+from trac.versioncontrol import RepositoryManager
 
 from componentdependencies import IRequireComponents
 from tractags.model import TagModelProvider
@@ -304,8 +305,10 @@ class FullTextSearch(Component):
 
     def _reindex_changeset(self, realm, feedback, finish_fb):
         """Iterate all changesets and call self.changeset_added on them"""
-        # TODO Multiple repository support
-        repo = self.env.get_repository()
+        all_repos = RepositoryManager(self.env).get_real_repositories()
+        if not all_repos:
+            return
+        repo = all_repos.pop()
         def all_revs():
             rev = repo.oldest_rev
             yield rev
@@ -690,10 +693,9 @@ class FullTextSearch(Component):
                 changed = node.get_last_modified(),
                 action = 'CREATE',
                 author = changeset.author,
-                created = changeset.date
+                created = changeset.date,
+                body = node.get_content(),
                 )
-        if node.content_length <= self.max_size:
-            so.body = node.get_content()
         return so
 
     def _changes(self, repos, changeset):
@@ -729,16 +731,18 @@ class FullTextSearch(Component):
         # Index the file contents of this revision, a changeset can involve
         # thousands of files - so submit in batches to avoid exceeding the
         # available file handles
-        sos = (so for so in self._changes(repos, changeset))
-        for chunk in grouper(sos, 25):
-            try:
-                self.backend.add(chunk, quiet=True)
-                self.log.debug("Indexed %i repository changes at revision %i",
-                               len(chunk), changeset.rev)
-            finally:
-                for so in chunk:
-                    if hasattr(so.body, 'close'):
-                        so.body.close()
+
+        #skip this!
+        #sos = (so for so in self._changes(repos, changeset))
+        #for chunk in grouper(sos, 25):
+        #    try:
+        #        self.backend.add(chunk, quiet=True)
+        #        self.log.debug("Indexed %i repository changes at revision %i",
+        #                       len(chunk), changeset.rev)
+        #    finally:
+        #        for so in chunk:
+        #            if hasattr(so.body, 'close'):
+        #                so.body.close()
 
     def changeset_modified(self, repos, changeset, old_changeset):
         """Called after a changeset has been modified in a repository.
