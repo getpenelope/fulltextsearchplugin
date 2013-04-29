@@ -17,11 +17,10 @@ from trac.wiki.api import IWikiChangeListener, WikiSystem
 from trac.wiki.model import WikiPage
 from trac.wiki.web_ui import WikiModule
 from trac.util.text import shorten_line
-from trac.attachment import IAttachmentChangeListener, Attachment
 from trac.versioncontrol.api import IRepositoryChangeListener, Changeset
 from trac.versioncontrol.web_ui import ChangesetModule
 from trac.resource import (get_resource_shortname, get_resource_url,
-                           Resource, ResourceNotFound)
+                           Resource)
 from trac.search import ISearchSource, shorten_result
 from trac.util.translation import _
 from trac.config import IntOption
@@ -29,7 +28,6 @@ from trac.config import ListOption
 from trac.config import Option
 from trac.util.compat import partial
 from trac.util.datefmt import to_datetime, to_utimestamp, utc
-from trac.util.datefmt import from_utimestamp
 from trac.web.chrome import add_warning
 from trac.versioncontrol import RepositoryManager
 
@@ -235,7 +233,7 @@ class FullTextSearch(Component):
     """Search all ChangeListeners and prepare the output for a full text 
        backend."""
     implements(ITicketChangeListener, IWikiChangeListener, 
-               IAttachmentChangeListener, IMilestoneChangeListener,
+               IMilestoneChangeListener,
                IRepositoryChangeListener, ISearchSource,
                IEnvironmentSetupParticipant, IRequireComponents)
 
@@ -244,8 +242,7 @@ class FullTextSearch(Component):
                            doc="URL to use for HTTP REST calls to Solr")
 
     search_realms = ListOption("search", "fulltext_search_realms",
-        default=['ticket', 'wiki', 'milestone', 'changeset', 'source',
-                 'attachment'],
+        default=['ticket', 'wiki', 'milestone', 'changeset', 'source',],
         doc="""Realms for which full-text search should be enabled.
 
         This option does not affect the realms available for indexing.
@@ -266,7 +263,6 @@ class FullTextSearch(Component):
             (u'milestone',  u'Milestones',  True,   self._reindex_milestone),
             (u'changeset',  u'Changesets',  True,   self._reindex_changeset),
             (u'source',     u'File archive', True,  None),
-            (u'attachment', u'Attachments', True,   self._reindex_attachment),
             ]
         self._indexers = dict((name, indexer) for name, label, enabled, indexer
                                               in self._realms if indexer)
@@ -287,7 +283,7 @@ class FullTextSearch(Component):
         """Iterate through `resources` to index `realm`, return index count
         
         realm       Trac realm to which items in resources belong
-        resources   Iterable of Trac resources e.g. WikiPage, Attachment
+        resources   Iterable of Trac resources e.g. WikiPage
         check_cb    Callable that accepts a resource & status,
                     returns True if it needs to be indexed
         index_cb    Callable that accepts a resource, indexes it
@@ -337,64 +333,6 @@ class FullTextSearch(Component):
 
     def _update_wiki(self, page):
         self._set_status(page, to_utimestamp(page.time))
-
-    def _reindex_attachment(self, realm, feedback, finish_fb):
-        db = self.env.get_read_db()
-        cursor = db.cursor()
-        # This plugin was originally written for #define 4, a Trac derivative
-        # that includes versioned attachments. TO try and keep compatibility
-        # with both check support by checking for a version attribute on an
-        # Attachment. Instantiating Attachment doesn't perform any queries,
-        # so it doesn't matter if ticket:42 actually exists
-        # The versioned attachment code used by #define is published on github
-        # https://github.com/moreati/trac-gitsvn/tree/0.12-versionedattachments
-        canary = Attachment(self.env, 'ticket', 42)
-        if hasattr(canary, 'version'):
-            # Adapted from Attachment.select()
-            cursor.execute("""
-                SELECT type, id, filename, version, description, size, time,
-                       author, ipnr, status, deleted
-                FROM attachment
-                JOIN (SELECT type AS c_type, id AS c_id,
-                             filename AS c_filename, MAX(version) AS c_version
-                      FROM attachment
-                      WHERE deleted IS NULL
-                      GROUP BY c_type, c_id, c_filename) AS current
-                     ON type = c_type AND id = c_id
-                        AND filename = c_filename AND version = c_version
-                ORDER BY time""",
-                )
-        else:
-            cursor.execute(
-                "SELECT type,id,filename,description,size,time,author,ipnr "
-                "FROM attachment "
-                "ORDER by time",
-                )
-
-        def _from_database(attachment, filename, description,
-                           size, time, author, ipnr):
-            attachment.filename = filename
-            attachment.description = description
-            attachment.size = int(size) if size else 0
-            attachment.date = from_utimestamp(time or 0)
-            attachment.author = author
-            attachment.ipnr = ipnr
-
-        def att(row):
-            parent_realm, parent_id = row[0], row[1]
-            attachment = Attachment(self.env, parent_realm, parent_id)
-            _from_database(attachment, *row[2:])
-            return attachment
-
-        def check(attachment, status):
-            return (status is None
-                    or attachment.date > to_datetime(int(status)))
-        resources = (att(row) for row in cursor)
-        index = self.attachment_added
-        return self._index(realm, resources, check, index, feedback, finish_fb)
-
-    def _update_attachment(self, attachment):
-        self._set_status(attachment, to_utimestamp(attachment.date))
 
     def _reindex_ticket(self, realm, feedback, finish_fb):
         db = self.env.get_read_db()
@@ -620,52 +558,6 @@ class FullTextSearch(Component):
             else:
                 raise e
         return (tag for (tag,) in cursor)
-
-    #IAttachmentChangeListener methods
-    def attachment_added(self, attachment):
-        """Called when an attachment is added."""
-        if hasattr(attachment, 'version'):
-            history = list(attachment.get_history())
-            created = history[-1].date
-            involved = list(set(a.author for a in history))
-            comments = list(set(a.description for a in history 
-                                if a.description))
-        else:
-            created = attachment.date
-            involved = attachment.author
-            comments = [attachment.description]
-        so = FullTextSearchObject(
-                self.project, attachment.resource,
-                title = attachment.title,
-                author = attachment.author,
-                changed = attachment.date,
-                created = created,
-                comments = comments,
-                involved = involved,
-                )
-        if attachment.size <= self.max_size:
-            try:
-                so.body = attachment.open()
-            except ResourceNotFound:
-                self.log.warning('Missing attachment file "%s" encountered '
-                                 'whilst indexing full text search', 
-                                 attachment)
-        try:
-            self.backend.create(so, quiet=True)
-            self._update_attachment(attachment)
-        finally:
-            if hasattr(so.body, 'close'):
-                so.body.close()
-
-    def attachment_deleted(self, attachment):
-        """Called when an attachment is deleted."""
-        so = FullTextSearchObject(self.project, attachment.resource)
-        self.backend.delete(so, quiet=True)
-        self._update_attachment(attachment)
-
-    def attachment_reparented(self, attachment, old_parent_realm, old_parent_id):
-        """Called when an attachment is reparented."""
-        self.attachment_added(attachment)
 
     #IMilestoneChangeListener methods
     def milestone_created(self, milestone):
