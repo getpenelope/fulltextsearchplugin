@@ -73,7 +73,7 @@ class FullTextSearchObject(object):
     def __init__(self, project, realm, id=None,
                  parent_realm=None, parent_id=None,
                  title=None, author=None, changed=None, created=None,
-                 oneline=None, tags=None, involved=None,
+                 oneline=None, tags=None, involved=None, status=None,
                  popularity=None, body=None, comments=None, action=None,
                  **kwarg):
         # we can't just filter on the first part of id, because
@@ -99,6 +99,7 @@ class FullTextSearchObject(object):
         self.body = body
         self.comments = comments
         self.action = action
+        self.status = status
 
     def _get_realm(self):
         return self.resource.realm
@@ -480,6 +481,7 @@ class FullTextSearch(Component):
                 popularity = 0, #FIXME
                 oneline = shorten_result(ticket.values.get('description', '')),
                 body = u'%r' % (ticket.values,),
+                status = ticket.values.get('status'),
                 comments = [t[4] for t in ticket.get_changelog()],
                 )
         self.backend.create(so, quiet=True)
