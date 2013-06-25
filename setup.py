@@ -45,8 +45,8 @@ setup(
                         'TracTags',
                         'ComponentDependencyPlugin',
                         ],
-    dependency_links = ['http://trac-hacks.org/attachment/wiki/FullTextSearchPlugin/ComponentDependencyPlugin-0.1.tar.gz?format=raw',
-                        'http://trac-hacks.org/attachment/wiki/FullTextSearchPlugin/TracTags-0.6.tar.gz?format=raw',
+    dependency_links = ['http://trac-hacks.org/raw-attachment/wiki/FullTextSearchPlugin/TracTags-0.6.tar.gz',
+                        'http://trac-hacks.org/raw-attachment/wiki/FullTextSearchPlugin/ComponentDependencyPlugin-0.1.tar.gz'
                         ],
     entry_points = {
         'trac.plugins': [
