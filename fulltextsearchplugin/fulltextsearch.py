@@ -161,8 +161,10 @@ class Backend(Queue):
     def add(self, item, quiet=False):
         if isinstance(item, list):
             for i in item:
+                i.action = 'CREATE'
                 self.put(i)
         else:
+            item.action = 'CREATE'
             self.put(item)
         self.commit(quiet=quiet)
         
@@ -214,12 +216,12 @@ class Backend(Queue):
                 else:
                     raise ValueError("Unknown Solr action %s on %s"
                                      % (item.action, item))
-            try:
-                s.commit()
-            except Exception, e:
-                self.log.exception('%s %r', item, item)
-                if not quiet:
-                    raise
+        try:
+            s.commit()
+        except Exception, e:
+            self.log.exception('%s %r', item, item)
+            if not quiet:
+                raise
 
     def optimize(self):
         s = self.si_class(self.solr_endpoint)
@@ -343,8 +345,12 @@ class FullTextSearch(Component):
             return (status is None
                     or ticket.values['changetime'] > to_datetime(int(status)))
         resources = (Ticket(self.env, tkt_id) for (tkt_id,) in cursor)
-        index = self.ticket_created
-        return self._index(realm, resources, check, index, feedback, finish_fb)
+
+        resources = (r for r in resources if check(r, self._get_status(r)))
+        self.add_bulk_tickets(resources)
+        feedback(realm, resources)
+        finish_fb(realm, resources)
+        return 1
 
     def _update_ticket(self, ticket):
         self._set_status(ticket, to_utimestamp(ticket.values['changetime']))
@@ -450,6 +456,46 @@ class FullTextSearch(Component):
 
     def _status_id(self, resource):
         return 'fulltextsearch_%s' % _res_id(resource.resource)
+
+    def add_bulk_tickets(self, tickets):
+        ticketsystem = TicketSystem(self.env)
+        sos = []
+        for ticket in tickets:
+            resource_name = get_resource_shortname(self.env, ticket.resource)
+            resource_desc = ticketsystem.get_resource_description(ticket.resource,
+                                                                format='summary')
+            # make sure we will index customerrequest name not id
+            cr_id = ticket['customerrequest']
+            if cr_id:
+                db = self.env.get_read_db()
+                cursor = db.cursor()
+                cursor.execute("SELECT name FROM public.customer_requests "
+                            " WHERE id='%s'" % cr_id)
+                row = cursor.fetchone()
+                if row:
+                    ticket.values['customerrequest'] = row[0]
+
+            so = FullTextSearchObject(
+                    self.project, ticket.resource,
+                    title = u"%(title)s: %(message)s" % {'title': resource_name,
+                                                        'message': resource_desc},
+                    author = ticket.values.get('reporter'),
+                    changed = ticket.values.get('changetime'),
+                    created = ticket.values.get('time'),
+                    tags = ticket.values.get('keywords'),
+                    involved = re.split(r'[;,\s]+', ticket.values.get('cc', ''))
+                            or ticket.values.get('reporter'),
+                    popularity = 0, #FIXME
+                    oneline = shorten_result(ticket.values.get('description', '')),
+                    body = u'%r' % (ticket.values,),
+                    status = ticket.values.get('status'),
+                    comments = [t[4] for t in ticket.get_changelog()],
+                    )
+            self._update_ticket(ticket)
+            self.log.debug("Ticket added for indexing: %s", ticket)
+            sos.append(so)
+        self.backend.add(sos, quiet=True)
+
 
     # ITicketChangeListener methods
     def ticket_created(self, ticket):
