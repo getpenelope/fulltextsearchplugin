@@ -26,7 +26,6 @@ from trac.util.translation import _
 from trac.config import IntOption
 from trac.config import ListOption
 from trac.config import Option
-from trac.util.compat import partial
 from trac.util.datefmt import to_datetime, to_utimestamp, utc
 from trac.web.chrome import add_warning
 from trac.versioncontrol import RepositoryManager
@@ -307,7 +306,7 @@ class FullTextSearch(Component):
         """Iterate all changesets and call self.changeset_added on them"""
         all_repos = RepositoryManager(self.env).get_real_repositories()
         if not all_repos:
-            return
+            return 0
         repo = all_repos.pop()
         def all_revs():
             rev = repo.oldest_rev
@@ -320,8 +319,10 @@ class FullTextSearch(Component):
         def check(changeset, status):
             return status is None or changeset.date > to_datetime(int(status))
         resources = (repo.get_changeset(rev) for rev in all_revs())
-        index = partial(self.changeset_added, repo)
-        return self._index(realm, resources, check, index, feedback, finish_fb)
+        self.add_bulk_changesets(resources)
+        feedback(realm, resources)
+        finish_fb(realm, resources)
+        return 1
 
     def _update_changeset(self, changeset):
         self._set_status(changeset, to_utimestamp(changeset.date))
@@ -663,6 +664,23 @@ class FullTextSearch(Component):
                 node = repos.get_node(path, changeset.rev)
                 yield self._fill_so(changeset, node)
 
+    def add_bulk_changesets(self, changesets):
+        sos = []
+        for changeset in changesets:
+            so = FullTextSearchObject(
+                    self.project, changeset.resource,
+                    title=u'[%s]: %s' % (changeset.rev,
+                                        shorten_line(changeset.message)),
+                    oneline=shorten_result(changeset.message),
+                    body=changeset.message,
+                    author=changeset.author,
+                    created=changeset.date,
+                    changed=changeset.date,
+                    )
+            self._update_changeset(changeset)
+            sos.append(so)
+        self.backend.add(sos, quiet=True)
+
     #IRepositoryChangeListener methods
     def changeset_added(self, repos, changeset):
         """Called after a changeset has been added to a repository."""
@@ -679,22 +697,6 @@ class FullTextSearch(Component):
                 )
         self.backend.create(so, quiet=True)
         self._update_changeset(changeset)
-
-        # Index the file contents of this revision, a changeset can involve
-        # thousands of files - so submit in batches to avoid exceeding the
-        # available file handles
-
-        #skip this!
-        #sos = (so for so in self._changes(repos, changeset))
-        #for chunk in grouper(sos, 25):
-        #    try:
-        #        self.backend.add(chunk, quiet=True)
-        #        self.log.debug("Indexed %i repository changes at revision %i",
-        #                       len(chunk), changeset.rev)
-        #    finally:
-        #        for so in chunk:
-        #            if hasattr(so.body, 'close'):
-        #                so.body.close()
 
     def changeset_modified(self, repos, changeset, old_changeset):
         """Called after a changeset has been modified in a repository.
