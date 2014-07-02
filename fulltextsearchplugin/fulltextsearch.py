@@ -612,8 +612,7 @@ class FullTextSearch(Component):
     def milestone_created(self, milestone):
         so = FullTextSearchObject(
                 self.project, milestone.resource,
-                title = u'%s: %s' % (milestone.name,
-                                     shorten_line(milestone.description)),
+                title = milestone.name,
                 changed = milestone.completed or milestone.due
                                               or datetime.now(utc),
                 involved = (),
